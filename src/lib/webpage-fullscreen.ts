@@ -81,7 +81,9 @@ window.addEventListener('keyup', (e) => {
   }
 });
 
-export function start() {
+let index = 0;
+
+export async function start() {
   for (const selector of whitelistPlayerRootSelector) {
     const container = document.querySelector(selector);
     if (container) {
@@ -97,6 +99,19 @@ export function start() {
 
   const videoEl = document.querySelector('video');
   if (!videoEl) {
+    // 是否是iframe里面的video
+    const iframes = document.querySelectorAll('iframe');
+
+    for (const iframe of iframes) {
+      const res = await getIframeHasVideo(iframe);
+      if (res) {
+        console.log('iframe找到播放器', iframe);
+        iframe.classList.add(flag);
+        window.dispatchEvent(new Event('resize'));
+        return;
+      }
+    }
+
     console.warn('没有找到网页播放器元素');
     alert('没有找到网页播放器元素');
     return;
@@ -129,3 +144,25 @@ export function toggle() {
     start();
   }
 }
+
+const relosveMap = new Map<number, (data: any) => void>();
+
+export function getIframeHasVideo(iframe: HTMLIFrameElement) {
+  let id = index++;
+  iframe.contentWindow?.postMessage({ type: 'IS_EXIST_VIDEO', id: id }, '*');
+
+  return new Promise((resolve, reject) => {
+    relosveMap.set(id, resolve);
+  });
+
+}
+
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'IS_EXIST_VIDEO_RESULT') {
+    const resolve = relosveMap.get(e.data.id);
+    if (resolve) {
+      resolve(e.data.data);
+      relosveMap.delete(e.data.id);
+    }
+  }
+});
